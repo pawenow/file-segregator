@@ -5,12 +5,10 @@ import org.apache.tika.Tika;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.logging.Logger;
 
 public class App {
     //file type
-    private static final String JAR_TYPE = "application/java-archive";
-    private static final String XML_TYPE = "application/xml";
+
 
     private final String TEST_PATH;
     private final String DEV_PATH;
@@ -30,7 +28,7 @@ public class App {
      * @throws IOException
      */
     private void segregateFile(WatchService watchService, Path pathHome) throws InterruptedException, IOException {
-        Tika tika = new Tika();
+
         while (true) {
 
             WatchKey key;
@@ -38,19 +36,12 @@ public class App {
 
             for (WatchEvent<?> event : key.pollEvents()) {
                 if(event.kind().equals(StandardWatchEventKinds.ENTRY_CREATE)){
-                    WatchEvent<Path> ev = (WatchEvent<Path>)event;
-                    Path filename = ev.context();
-                    Path resolve = pathHome.resolve(filename);
+                    MoveMechanism moveMechanism = new MoveMechanism(event,pathHome,TEST_PATH,DEV_PATH);
+                    Thread t = new Thread(moveMechanism);
+                    t.start();
 
-                    BasicFileAttributes attr = Files.readAttributes(resolve, BasicFileAttributes.class);
-                    String fileType = tika.detect(resolve);
-                    if(JAR_TYPE.equals(fileType) && attr.creationTime().toMillis()%2==1
-                            || XML_TYPE.equals(fileType) ){
-                        Files.move(resolve,Paths.get(TEST_PATH +"/" + filename));
-                    }else if(JAR_TYPE.equals(fileType)){
-                        Files.move(resolve,Paths.get(DEV_PATH + "/"+ filename));
-                    }
-
+                }else{
+                    CounterHelper.updateAmountFile();
                 }
             }
             key.reset();
@@ -76,8 +67,7 @@ public class App {
 
         return watchService;
     }
-
-
+    
     public void run() throws IOException, InterruptedException {
         Path pathHome = Paths.get(HOME_PATH);
         WatchService watchService = initializeWatchService();
